@@ -40,13 +40,11 @@ def test_repr():
 def test_str():
     assert str(Month(2001, 1)) == "2001-01"
     assert str(Month(2013, 10)) == "2013-10"
-    assert str(Month(500, 1)) == "0500-01"
 
 
 def test_from_str():
     assert Month.from_str("2022-01") == Month(2022, 1)
     assert Month.from_str("2013-10") == Month(2013, 10)
-    assert Month.from_str("0500-11") == Month(500, 11)
 
 
 def test_format():
