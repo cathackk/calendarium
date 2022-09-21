@@ -1,5 +1,8 @@
 import datetime
+import re
+from typing import Any
 from typing import Iterator
+from typing import Union
 
 from calendarium.date_range import DateRange
 
@@ -12,9 +15,22 @@ class Month:
 
     __slots__ = ('year', 'month', 'start_date', 'end_date')
 
-    def __init__(self, year: int, month: int):
-        self.year = int(year)
-        self.month = int(month)
+    def __init__(self, *args, year: int=None, month: int=None):
+        if year is not None and month is not None:
+            if args:
+                raise TypeError(
+                    f"{type(self).__name__} expects only args or only kwargs, but not both"
+                )
+            self.year, self.month = int(year), int(month)
+        elif year is not None or month is not None:
+            raise TypeError(f"{type(self).__name__} requires both year and month, not just one")
+        elif len(args) == 1:
+            self.year, self.month = Month._ym_tuple(args[0])
+        elif len(args) == 2:
+            self.year, self.month = int(args[0]), int(args[1])
+        else:
+            raise TypeError(f"{type(self).__name__} expected 1 or 2 arguments, got {len(args)}")
+
         self.start_date = datetime.date(self.year, self.month, 1)
 
         if self.month < 12:
@@ -26,6 +42,27 @@ class Month:
         else:
             # 9999-12 -> end_date 9999-31-12 (max date!)
             self.end_date = datetime.date(datetime.MAXYEAR, 12, 31)
+
+    @classmethod
+    def _ym_tuple(cls, obj: Any) -> tuple[int, int]:
+        if isinstance(obj, cls):
+            return obj.year, obj.month
+
+        if isinstance(obj, tuple) and len(obj) == 2:
+            year, month = obj
+            return int(year), int(month)
+
+        if isinstance(obj, str):
+            try:
+                date = datetime.datetime.strptime(obj, cls.DEFAULT_FORMAT).date()
+                return date.year, date.month
+            except ValueError as exc:
+                raise ValueError(f"failed to parse {cls.__name__} from {obj!r}") from exc
+
+        if isinstance(obj, datetime.date):
+            return obj.year, obj.month
+
+        raise TypeError(f"failed to convert {type(obj).__name__} into {cls.__name__}")
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self.year!r}, {self.month!r})'
@@ -39,15 +76,15 @@ class Month:
         return format(self.start_date, format_spec or self.DEFAULT_FORMAT)
 
     @classmethod
-    def from_str(cls, month_string: str) -> 'Month':
-        return cls.parse(month_string)
-
-    @classmethod
     def parse(cls, month_string: str, format_spec: str = DEFAULT_FORMAT) -> 'Month':
         return cls.for_date(datetime.datetime.strptime(month_string, format_spec).date())
 
     def __eq__(self, other) -> bool:
-        return self.year == other.year and self.month == other.month
+        return (
+            isinstance(other, type(self))
+            and self.year == other.year
+            and self.month == other.month
+        )
 
     def __hash__(self) -> int:
         return hash((type(self).__name__, self.ord()))
@@ -94,7 +131,7 @@ class Month:
         year, month = divmod(ord_, 12)
         return cls(year + cls.EPOCH_Y, month + cls.EPOCH_M)
 
-    def __sub__(self, other):
+    def __sub__(self, other) -> 'MonthDelta':
         # month - month
         if isinstance(other, Month):
             return MonthDelta(self.ord() - other.ord())
@@ -103,7 +140,7 @@ class Month:
 
     @property
     def last_date(self) -> datetime.date:
-        return datetime.date(self.year, self.month, len(self))
+        return self.end_date - datetime.timedelta(1)
 
     @classmethod
     def for_date(cls, date: datetime.date) -> 'Month':
@@ -112,6 +149,9 @@ class Month:
     @classmethod
     def today(cls) -> 'Month':
         return cls.for_date(datetime.date.today())
+
+
+MonthLike = Union[Month, tuple[int, int], str]
 
 
 class MonthDelta:
@@ -146,11 +186,37 @@ class MonthDelta:
         parts_str = ''.join(parts()) or '0M'
         return f'{sign}P{parts_str}'
 
+    @classmethod
+    def from_str(cls, md_string: str) -> 'MonthDelta':
+        match = re.fullmatch(r'([+-])?P([+-]?\d+Y)?([+-]?\d+M)?', md_string)
+        if not match:
+            raise ValueError(f'invalid string for {cls.__name__}: {md_string!r}')
+
+        sign_group, year_group, month_group = match.groups()
+        if not year_group and not month_group:
+            raise ValueError(f'invalid string for {cls.__name__}: {md_string!r}')
+
+        sign = -1 if sign_group == '-' else +1
+        return cls(
+            months=sign * int((month_group or '0').rstrip('M')),
+            years=sign * int((year_group or '0').rstrip('Y')),
+        )
+
+    @classmethod
+    def between(cls, start_month: MonthLike, end_month: MonthLike):
+        return Month(end_month) - Month(start_month)
+
     def __eq__(self, other) -> bool:
         return self.months == other.months
 
     def __neg__(self) -> 'MonthDelta':
         return type(self)(years=-self.years, months=-self.months)
+
+    def __abs__(self) -> 'MonthDelta':
+        return type(self)(months=abs(self.total_months()))
+
+    def __bool__(self) -> bool:
+        return bool(self.total_months())
 
     def __add__(self, other):
         # monthdelta + month
@@ -159,7 +225,12 @@ class MonthDelta:
 
         # monthdelta + monthdelta
         if isinstance(other, MonthDelta):
-            return type(self)(self.total_months() + other.total_months())
+            return type(other)(months=self.total_months() + other.total_months())
+
+        # monthdelta + date
+        if isinstance(other, datetime.date):
+            month = Month(other) + self
+            return type(other)(year=month.year, month=month.month, day=min(other.day, len(month)))
 
         return NotImplemented
 
@@ -182,3 +253,15 @@ class MonthDelta:
 
     def __floordiv__(self, other):
         return type(self)(self.total_months() // other)
+
+    def __lt__(self, other):
+        if isinstance(other, type(self)):
+            return self.total_months() < other.total_months()
+
+        return NotImplemented
+
+    def __le__(self, other):
+        if isinstance(other, type(self)):
+            return self.total_months() <= other.total_months()
+
+        return NotImplemented

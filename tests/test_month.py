@@ -8,10 +8,53 @@ from calendarium.month import Month
 from calendarium.month import MonthDelta
 
 
+def test_init():
+    m1 = Month(2001, 12)
+    assert m1.year == 2001
+    assert m1.month == 12
+
+    m2 = Month(year=1998, month=3)
+    assert m2.year == 1998
+    assert m2.month == 3
+
+
+def test_init_alt():
+    m1 = Month("2001-10")
+    assert m1.year == 2001
+    assert m1.month == 10
+
+    m2 = Month((1999, 3))
+    assert m2.year == 1999
+    assert m2.month == 3
+
+    m3 = Month(m2)
+    assert m3.year == 1999
+    assert m3.month == 3
+
+
+def test_init_invalid():
+    with pytest.raises(TypeError) as exc_info:
+        Month()
+    assert str(exc_info.value) == "Month expected 1 or 2 arguments, got 0"
+
+    with pytest.raises(TypeError) as exc_info:
+        Month(1999, 2, 3)
+    assert str(exc_info.value) == "Month expected 1 or 2 arguments, got 3"
+
+    with pytest.raises(TypeError) as exc_info:
+        Month(2003, 1, year=2002, month=4)
+    assert str(exc_info.value) == "Month expects only args or only kwargs, but not both"
+
+    with pytest.raises(ValueError) as exc_info:
+        Month("xxx")
+    assert str(exc_info.value) == "failed to parse Month from 'xxx'"
+
+
+
 def test_init_year_validation():
     for year in [1, 100, 333, 1000, 1453, 1999, 2000, 2100, 5011, 9999]:
-        Month(year, 1)
-        Month(year, 12)
+        assert Month(year, 1).year == year
+        assert Month(year, 12).year == year
 
     for year in (-1167, -1, 0, 10_000, 40_000):
         with pytest.raises(ValueError) as exc_info:
@@ -22,7 +65,7 @@ def test_init_year_validation():
 
 def test_init_month_number_validation():
     for month_number in range(1, 13):
-        Month(2000, month_number)
+        assert Month(2000, month_number).month == month_number
 
     for month_number in (-1, 0, 13, 20):
         with pytest.raises(ValueError) as exc_info:
@@ -40,11 +83,6 @@ def test_repr():
 def test_str():
     assert str(Month(2001, 1)) == "2001-01"
     assert str(Month(2013, 10)) == "2013-10"
-
-
-def test_from_str():
-    assert Month.from_str("2022-01") == Month(2022, 1)
-    assert Month.from_str("2013-10") == Month(2013, 10)
 
 
 def test_format():
@@ -187,6 +225,13 @@ def test_eq():
     assert Month(2001, 1) != Month(2001, 2)
     assert Month(2001, 1) != Month(2002, 1)
     assert Month(2001, 1) != Month(2002, 2)
+
+    assert Month("2022-01") == Month(2022, 1)
+    assert Month("2013-10") == Month(2013, 10)
+
+    assert Month("2022-01") != "2022-01"
+    assert Month(2001, 1) != (2001, 1)
+    assert Month(2001, 1) != 15
 
 
 def test_comparison():
