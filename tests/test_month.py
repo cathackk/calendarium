@@ -50,7 +50,6 @@ def test_init_invalid():
     assert str(exc_info.value) == "failed to parse Month from 'xxx'"
 
 
-
 def test_init_year_validation():
     for year in [1, 100, 333, 1000, 1453, 1999, 2000, 2100, 5011, 9999]:
         assert Month(year, 1).year == year
@@ -350,7 +349,9 @@ def test_sub_others():
             month - subtraction
         assert str(exc_info.value).startswith("unsupported operand type(s) for -: 'Month' and '")
 
-    for subtracted in [0, 1, MonthDelta(1), datetime.date(2022, 1, 1), datetime.timedelta(days=31), None]:
+    for subtracted in [
+        0, 1, MonthDelta(1), datetime.date(2022, 1, 1), datetime.timedelta(days=31), None
+    ]:
         with pytest.raises(TypeError) as exc_info:
             subtracted - month
         assert str(exc_info.value).startswith("unsupported operand type(s) for -: '")

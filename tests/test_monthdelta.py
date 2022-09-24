@@ -132,6 +132,9 @@ def test_add_month():
 
 
 def test_add_date():
+    assert MonthDelta(1) + datetime.date(2021, 10, 12) == datetime.date(2021, 11, 12)
+    assert MonthDelta(3) + datetime.date(1988, 3, 20) == datetime.date(1988, 6, 20)
+
     assert datetime.date(2021, 10, 12) + MonthDelta(1) == datetime.date(2021, 11, 12)
     assert datetime.date(1988, 3, 20) + MonthDelta(3) == datetime.date(1988, 6, 20)
 
@@ -217,6 +220,19 @@ def test_bool():
     assert MonthDelta(1)
     assert MonthDelta(100)
     assert MonthDelta(-1)
+
+
+def test_hash():
+    d = {}
+    d[MonthDelta(1)] = 'one'
+    d[MonthDelta(10)] = 'ten'
+    d[MonthDelta(-1)] = 'minus one'
+    d[MonthDelta(1)] = 'ONE'  # overwrite
+    assert d == {
+        MonthDelta(1): 'ONE',
+        MonthDelta(10): 'ten',
+        MonthDelta(-1): 'minus one',
+    }
 
 
 def test_abs():

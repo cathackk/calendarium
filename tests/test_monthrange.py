@@ -266,6 +266,19 @@ def test_bool():
     assert MonthRange((2000, 1), (2001, 1))
 
 
+def test_hash():
+    d = {}
+    d[MonthRange((2020, 1), months=2)] = 'AAA'
+    d[MonthRange((2020, 1), months=3)] = 'BBB'
+    d[MonthRange((2020, 2), months=2)] = 'CCC'
+    d[MonthRange((2020, 1), (2020, 3))] = 'AAA+'  # overwrite
+    assert d == {
+        MonthRange((2020, 1), (2020, 3)): 'AAA+',
+        MonthRange((2020, 1), (2020, 4)): 'BBB',
+        MonthRange((2020, 2), (2020, 4)): 'CCC',
+    }
+
+
 def test_year():
     assert MonthRange.year(2000) == MonthRange((2000, 1), (2001, 1))
     assert MonthRange.year(1776) == MonthRange((1776, 1), (1777, 1))

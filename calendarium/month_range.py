@@ -83,6 +83,12 @@ class MonthRange:
 
         return self.start_month == other.start_month and self.end_month == other.end_month
 
+    def __hash__(self) -> int:
+        if self:
+            return hash((type(self).__name__, self.start_month.ord(), self.end_month.ord()))
+        else:
+            return hash((type(self).__name__, 0, 0))
+
     def __len__(self) -> int:
         return self.duration.total_months()
 
@@ -93,6 +99,9 @@ class MonthRange:
         )
 
     def __contains__(self, item):
+        if isinstance(item, datetime.date):
+            return self.start_date <= item < self.end_date
+
         return self.start_month <= Month(item) < self.end_month
 
     def __add__(self, other) -> 'MonthRange':

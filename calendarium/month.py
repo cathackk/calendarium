@@ -1,3 +1,4 @@
+import calendar
 import datetime
 import re
 from typing import Any
@@ -15,7 +16,8 @@ class Month:
 
     __slots__ = ('year', 'month', 'start_date', 'end_date')
 
-    def __init__(self, *args, year: int=None, month: int=None):
+    # TODO: use @singledisatchmethod?
+    def __init__(self, *args, year: int = None, month: int = None):
         if year is not None and month is not None:
             if args:
                 raise TypeError(
@@ -59,9 +61,6 @@ class Month:
             except ValueError as exc:
                 raise ValueError(f"failed to parse {cls.__name__} from {obj!r}") from exc
 
-        if isinstance(obj, datetime.date):
-            return obj.year, obj.month
-
         raise TypeError(f"failed to convert {type(obj).__name__} into {cls.__name__}")
 
     def __repr__(self) -> str:
@@ -90,11 +89,7 @@ class Month:
         return hash((type(self).__name__, self.ord()))
 
     def is_leap(self) -> bool:
-        return (
-            self.month == 2
-            and self.year % 4 == 0
-            and (self.year % 100 != 0 or self.year % 400 == 0)
-        )
+        return self.month == 2 and calendar.isleap(self.year)
 
     def days(self) -> int:
         return DAYS_IN_MONTH[self.month - 1] + self.is_leap()
@@ -209,6 +204,9 @@ class MonthDelta:
     def __eq__(self, other) -> bool:
         return self.months == other.months
 
+    def __hash__(self) -> int:
+        return hash((type(self).__name__, self.years, self.months))
+
     def __neg__(self) -> 'MonthDelta':
         return type(self)(years=-self.years, months=-self.months)
 
@@ -229,7 +227,7 @@ class MonthDelta:
 
         # monthdelta + date
         if isinstance(other, datetime.date):
-            month = Month(other) + self
+            month = Month.for_date(other) + self
             return type(other)(year=month.year, month=month.month, day=min(other.day, len(month)))
 
         return NotImplemented
