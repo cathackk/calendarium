@@ -1,7 +1,6 @@
 import calendar
 import datetime
 from functools import singledispatchmethod
-from typing import Iterator
 
 from calendarium.date_range import DateRange
 
@@ -55,9 +54,9 @@ def year_week_num(date: datetime.date, first_weekday: Weekday = None) -> tuple[i
     return year, week_num
 
 
-class Week:
+class Week(DateRange):
 
-    __slots__ = ('year', 'week_num', 'start_date')
+    __slots__ = ('year', 'week_num')
 
     @singledispatchmethod
     def __init__(self, year: int, week_num: int, first_weekday: Weekday = None):
@@ -74,7 +73,8 @@ class Week:
         self.week_num = week_num
 
         day_offset = first_week_offset(self.year, first_weekday) + 7 * (self.week_num - 1)
-        self.start_date = datetime.date(self.year, 1, 1) + datetime.timedelta(days=day_offset)
+        start_date = datetime.date(self.year, 1, 1) + datetime.timedelta(days=day_offset)
+        super().__init__(start_date=start_date, end_date=start_date + datetime.timedelta(days=7))
 
     @__init__.register
     def _init_from_date(self, date: datetime.date):
@@ -84,14 +84,6 @@ class Week:
     @property
     def first_weekday(self) -> Weekday:
         return self.start_date.weekday()
-
-    @property
-    def end_date(self) -> datetime.date:
-        return self.start_date + datetime.timedelta(days=7)
-
-    @property
-    def last_date(self) -> datetime.date:
-        return self.start_date + datetime.timedelta(days=6)
 
     def __repr__(self) -> str:
         if self.first_weekday != get_first_weekday():
@@ -122,20 +114,8 @@ class Week:
     def __hash__(self) -> int:
         return hash((type(self).__name__, self.year, self.week_num, self.first_weekday))
 
-    def __len__(self) -> int:
-        return 7
-
-    def __iter__(self) -> Iterator[datetime.date]:
-        return iter(DateRange(self))
-
     def __getitem__(self, weekday: Weekday) -> datetime.date:
         return self.start_date + datetime.timedelta(days=(weekday - self.first_weekday) % 7)
-
-    def __contains__(self, item):
-        if not isinstance(item, datetime.date):
-            return False
-
-        return self.start_date <= item < self.end_date
 
     def __lt__(self, other) -> bool:
         if isinstance(other, type(self)):

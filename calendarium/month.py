@@ -2,7 +2,6 @@ import calendar
 import datetime
 import re
 from typing import Any
-from typing import Iterator
 from typing import Union
 
 from calendarium.date_range import DateRange
@@ -11,10 +10,10 @@ from calendarium.date_range import DateRange
 DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 
-class Month:
+class Month(DateRange):
     # TODO: doctests
 
-    __slots__ = ('year', 'month', 'start_date', 'end_date')
+    __slots__ = ('year', 'month')
 
     # TODO: use @singledisatchmethod?
     def __init__(self, *args, year: int = None, month: int = None):
@@ -33,17 +32,19 @@ class Month:
         else:
             raise TypeError(f"{type(self).__name__} expected 1 or 2 arguments, got {len(args)}")
 
-        self.start_date = datetime.date(self.year, self.month, 1)
+        start_date = datetime.date(self.year, self.month, 1)
 
         if self.month < 12:
             # 2022-09 -> end_date = 2022-10-01
-            self.end_date = datetime.date(self.year, self.month + 1, 1)
+            end_date = datetime.date(self.year, self.month + 1, 1)
         elif self.year < datetime.MAXYEAR:
             # 2022-12 -> end_date = 2023-01-01
-            self.end_date = datetime.date(self.year + 1, 1, 1)
+            end_date = datetime.date(self.year + 1, 1, 1)
         else:
             # 9999-12 -> end_date 9999-31-12 (max date!)
-            self.end_date = datetime.date(datetime.MAXYEAR, 12, 31)
+            end_date = datetime.date(datetime.MAXYEAR, 12, 31)
+
+        super().__init__(start_date, end_date)
 
     @classmethod
     def _ym_tuple(cls, obj: Any) -> tuple[int, int]:
@@ -92,16 +93,7 @@ class Month:
         return self.month == 2 and calendar.isleap(self.year)
 
     def days(self) -> int:
-        return DAYS_IN_MONTH[self.month - 1] + self.is_leap()
-
-    def __len__(self) -> int:
-        return self.days()
-
-    def __iter__(self) -> Iterator[datetime.date]:
-        return iter(DateRange(self))
-
-    def __contains__(self, date) -> bool:
-        return self.start_date <= date < self.end_date
+        return len(self)
 
     def __lt__(self, other) -> bool:
         if isinstance(other, Month):
@@ -132,10 +124,6 @@ class Month:
             return MonthDelta(self.ord() - other.ord())
 
         return NotImplemented
-
-    @property
-    def last_date(self) -> datetime.date:
-        return self.end_date - datetime.timedelta(1)
 
     @classmethod
     def for_date(cls, date: datetime.date) -> 'Month':

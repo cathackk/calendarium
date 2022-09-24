@@ -7,6 +7,11 @@ from calendarium.month import MonthDelta
 from calendarium.month import MonthLike
 
 
+# TODO: inherit from DateRange?
+#  but that way it would iterate over dates
+#  and has length of total_days(), not number of months
+
+
 class MonthRange:
 
     __slots__ = ('start_month', 'end_month', 'duration')
@@ -159,4 +164,3 @@ class MonthRange:
 
     def preceding(self) -> 'MonthRange':
         return type(self)(self.start_month - (self.end_month - self.start_month), self.start_month)
-
