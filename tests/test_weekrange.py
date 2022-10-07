@@ -301,8 +301,6 @@ def test_iter_sunday():
 
 
 def test_dates():
-    # TODO: DateRange should have no __iter__(), but have dates() instead
-
     dates = list(WeekRange((2000, 20), weeks=2).dates())
     assert len(dates) == 14
     assert dates[:2] == [datetime.date(2000, 5, 15), datetime.date(2000, 5, 16)]

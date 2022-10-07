@@ -4,7 +4,7 @@ import re
 from typing import Any
 from typing import Union
 
-from calendarium.date_range import DateRange
+from calendarium.date_range import DateRangeDays
 from calendarium.utils import get_arg
 from calendarium.utils import validate_args
 
@@ -12,7 +12,7 @@ from calendarium.utils import validate_args
 DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 
-class Month(DateRange):
+class Month(DateRangeDays):
     # TODO: doctests
 
     __slots__ = ('year', 'month')
@@ -80,21 +80,8 @@ class Month(DateRange):
     def parse(cls, month_string: str, format_spec: str = DEFAULT_FORMAT) -> 'Month':
         return cls.for_date(datetime.datetime.strptime(month_string, format_spec).date())
 
-    def __eq__(self, other) -> bool:
-        return (
-            isinstance(other, type(self))
-            and self.year == other.year
-            and self.month == other.month
-        )
-
-    def __hash__(self) -> int:
-        return hash((type(self).__name__, self.toordinal()))
-
     def is_leap(self) -> bool:
         return self.month == 2 and calendar.isleap(self.year)
-
-    def days(self) -> int:
-        return len(self)
 
     def __lt__(self, other) -> bool:
         if isinstance(other, Month):

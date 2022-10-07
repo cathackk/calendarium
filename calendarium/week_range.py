@@ -2,6 +2,7 @@ import datetime
 from typing import Iterator
 from typing import Optional
 
+from calendarium.date_range import DateRange
 from calendarium.week import first_date
 from calendarium.week import ONE_WEEK
 from calendarium.week import Week
@@ -9,7 +10,7 @@ from calendarium.week import Weekday
 from calendarium.week import WeekLike
 
 
-class WeekRange:
+class WeekRange(DateRange):
 
     __slots__ = ('start_week', 'end_week', 'duration')
 
@@ -45,6 +46,8 @@ class WeekRange:
 
         else:
             raise TypeError(f"too few arguments specified for {type(self).__name__}")
+
+        super().__init__(self.start_week.start_date, self.end_week.start_date)
 
     @property
     def last_week(self) -> Week:
@@ -85,37 +88,6 @@ class WeekRange:
         else:
             return format_spec[:-1], format_spec[-1]
 
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, type(self)):
-            return False
-
-        # empty ranges are equal
-        if not self and not other:
-            return True
-
-        return self.start_week == other.start_week and self.end_week == other.end_week
-
-    def __hash__(self) -> int:
-        return hash((type(self).__name__, self.start_week.toordinal(), self.end_week.toordinal()))
-
-    @property
-    def start_date(self) -> datetime.date:
-        return self.start_week.start_date
-
-    @property
-    def last_date(self) -> datetime.date:
-        return self.last_week.last_date
-
-    @property
-    def end_date(self) -> datetime.date:
-        return self.end_week.start_date
-
-    def total_days(self) -> int:
-        return self.duration.days
-
-    def __bool__(self) -> bool:
-        return self.start_week < self.end_week
-
     def __len__(self) -> int:
         return self.total_days() // 7
 
@@ -143,9 +115,6 @@ class WeekRange:
         return type(self)(self.start_week + other, self.end_week + other)
 
     __radd__ = __add__
-
-    def dates(self) -> Iterator[datetime.date]:
-        return (date for week in self for date in week)
 
     @classmethod
     def for_iso_year(cls, iso_year: int, first_weekday: Weekday = None) -> 'WeekRange':

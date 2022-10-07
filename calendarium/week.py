@@ -5,7 +5,7 @@ from typing import Any
 from typing import Optional
 from typing import Union
 
-from calendarium.date_range import DateRange
+from calendarium.date_range import DateRangeDays
 from calendarium.utils import get_arg
 from calendarium.utils import validate_args
 
@@ -81,7 +81,7 @@ def first_date(year: int, weekday: Optional[Weekday] = None) -> datetime.date:
     return datetime.date(year, 1, 1 + first_week_offset(year, weekday) % 7)
 
 
-class Week(DateRange):
+class Week(DateRangeDays):
 
     __slots__ = ('iso_year', 'week_num')
 
@@ -193,15 +193,6 @@ class Week(DateRange):
     @classmethod
     def starting_at(cls, date: datetime.date) -> 'Week':
         return cls.for_date(date, first_weekday=date.weekday())
-
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, type(self)):
-            return False
-
-        return self.start_date == other.start_date
-
-    def __hash__(self) -> int:
-        return hash((type(self).__name__, self.toordinal()))
 
     def __getitem__(self, weekday: Weekday) -> datetime.date:
         return self.start_date + datetime.timedelta(days=(weekday - self.first_weekday) % 7)

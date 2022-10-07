@@ -2,17 +2,13 @@ import datetime
 from typing import Iterator
 from typing import Optional
 
+from calendarium.date_range import DateRange
 from calendarium.month import Month
 from calendarium.month import MonthDelta
 from calendarium.month import MonthLike
 
 
-# TODO: inherit from DateRange?
-#  but that way it would iterate over dates
-#  and has length of total_days(), not number of months
-
-
-class MonthRange:
+class MonthRange(DateRange):
 
     __slots__ = ('start_month', 'end_month', 'duration')
 
@@ -48,6 +44,8 @@ class MonthRange:
         else:
             raise ValueError(f"too few arguments specified for {type(self).__name__}")
 
+        super().__init__(self.start_month.start_date, self.end_month.start_date)
+
     @property
     def last_month(self) -> Month:
         return self.end_month - MonthDelta(1)
@@ -82,23 +80,6 @@ class MonthRange:
         else:
             return format_spec[:-1], format_spec[-1]
 
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, type(self)):
-            return False
-
-        # empty ranges are equal
-        if not self and not other:
-            return True
-
-        return self.start_month == other.start_month and self.end_month == other.end_month
-
-    def __hash__(self) -> int:
-        if not self:
-            return hash((type(self).__name__, 0, 0))
-
-        return hash((type(self).__name__, self.start_month.toordinal(), self.end_month.toordinal()))
-
-
     def __len__(self) -> int:
         return self.duration.total_months()
 
@@ -126,30 +107,6 @@ class MonthRange:
         return type(self)(self.start_month + other, self.end_month + other)
 
     __radd__ = __add__
-
-    def __bool__(self) -> bool:
-        return self.start_month < self.end_month
-
-    def dates(self) -> Iterator[datetime.date]:
-        return (date for month in self for date in month)
-
-    @property
-    def start_date(self) -> datetime.date:
-        return self.start_month.start_date
-
-    @property
-    def end_date(self) -> datetime.date:
-        return self.end_month.start_date
-
-    @property
-    def last_date(self) -> datetime.date:
-        return self.end_month.start_date - datetime.timedelta(1)
-
-    def timedelta(self) -> datetime.timedelta:
-        return self.end_date - self.start_date if self else datetime.timedelta(0)
-
-    def total_days(self) -> int:
-        return self.timedelta().days
 
     @classmethod
     def for_year(cls, year: int) -> 'MonthRange':

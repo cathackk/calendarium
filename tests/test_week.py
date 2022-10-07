@@ -303,8 +303,6 @@ def test_init_invalid_value():
 
 
 def test_init_invalid_type():
-    # TODO: redo test for Month in a similar way
-
     with pytest.raises(TypeError) as exc_info:
         Week()
     assert str(exc_info.value) == "function missing required argument 'iso_year' (pos 1)"

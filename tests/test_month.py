@@ -176,19 +176,19 @@ def test_last_date():
     assert Month(2100, 2).last_date == datetime.date(2100, 2, 28)
 
 
-def test_days():
-    assert Month(2022, 2).days() == 28
-    assert Month(2022, 9).days() == 30
-    assert Month(2022, 10).days() == 31
-    assert [Month(2001, m).days() for m in range(1, 13)] == \
+def test_total_days():
+    assert Month(2022, 2).total_days() == 28
+    assert Month(2022, 9).total_days() == 30
+    assert Month(2022, 10).total_days() == 31
+    assert [Month(2001, m).total_days() for m in range(1, 13)] == \
            [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    assert [Month(2004, m).days() for m in range(1, 13)] == \
+    assert [Month(2004, m).total_days() for m in range(1, 13)] == \
            [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 
 def test_len():
     for month in [Month(2022, 2), Month(2024, 2), Month(1998, 1), Month(2400, 4)]:
-        assert month.days() == len(month)
+        assert month.total_days() == len(month)
 
 
 def test_is_leap():
