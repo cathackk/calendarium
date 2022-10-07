@@ -1,5 +1,4 @@
 import datetime
-from typing import Iterable
 
 from freezegun import freeze_time
 import pytest
@@ -17,8 +16,12 @@ def test_init():
     assert m2.year == 1998
     assert m2.month == 3
 
+    m3 = Month(1972, month=5)
+    assert m3.year == 1972
+    assert m3.month == 5
 
-def test_init_alt():
+
+def test_init_single_arg():
     m1 = Month("2001-10")
     assert m1.year == 2001
     assert m1.month == 10
@@ -28,22 +31,32 @@ def test_init_alt():
     assert m2.month == 3
 
     m3 = Month(m2)
+    assert m3 is not m2
+    assert m3 == m2
     assert m3.year == 1999
     assert m3.month == 3
 
 
-def test_init_invalid():
+def test_init_invalid_type():
     with pytest.raises(TypeError) as exc_info:
         Month()
-    assert str(exc_info.value) == "Month expected 1 or 2 arguments, got 0"
+    assert str(exc_info.value) == "function missing required argument 'year' (pos 1)"
+
+    with pytest.raises(TypeError) as exc_info:
+        Month(1999)
+    assert str(exc_info.value) == "function missing required argument 'month' (pos 2)"
 
     with pytest.raises(TypeError) as exc_info:
         Month(1999, 2, 3)
-    assert str(exc_info.value) == "Month expected 1 or 2 arguments, got 3"
+    assert str(exc_info.value) == "function accepts at most 2 arguments (3 given)"
 
     with pytest.raises(TypeError) as exc_info:
         Month(2003, 1, year=2002, month=4)
-    assert str(exc_info.value) == "Month expects only args or only kwargs, but not both"
+    assert str(exc_info.value) == "function accepts at most 2 arguments (4 given)"
+
+    with pytest.raises(TypeError) as exc_info:
+        Month(2003, year=2004)
+    assert str(exc_info.value) == "function argument given by name ('year') and position (1)"
 
     with pytest.raises(ValueError) as exc_info:
         Month("xxx")
@@ -101,26 +114,34 @@ def test_parse():
     assert Month.parse("January 1999", '%B %Y') == Month(1999, 1)
 
 
-def test_ord():
-    assert Month(1970, 1).ord() == 0
-    assert Month(1970, 2).ord() == 1
-    assert Month(1970, 12).ord() == 11
-    assert Month(1971, 1).ord() == 12
-    assert Month(2000, 1).ord() == 360
-    assert Month(2022, 9).ord() == 632
-    assert Month(1969, 12).ord() == -1
-    assert Month(1950, 1).ord() == -240
+def test_toordinal():
+    assert Month(1, 1).toordinal() == 1
+    assert Month(1, 2).toordinal() == 2
+    assert Month(1, 11).toordinal() == 11
+    assert Month(1, 12).toordinal() == 12
+    assert Month(2, 1).toordinal() == 13
+    assert Month(10, 12).toordinal() == 120
+    assert Month(100, 12).toordinal() == 1200
+    assert Month(1000, 12).toordinal() == 12_000
+    assert Month(2000, 12).toordinal() == 24_000
+    assert Month(2022, 9).toordinal() == 24_261
 
 
-def test_from_ord():
-    assert Month.from_ord(0) == Month(1970, 1)
-    assert Month.from_ord(1) == Month(1970, 2)
-    assert Month.from_ord(11) == Month(1970, 12)
-    assert Month.from_ord(12) == Month(1971, 1)
-    assert Month.from_ord(360) == Month(2000, 1)
-    assert Month.from_ord(632) == Month(2022, 9)
-    assert Month.from_ord(-1) == Month(1969, 12)
-    assert Month.from_ord(-240) == Month(1950, 1)
+def test_fromordinal():
+    assert Month.fromordinal(1) == Month(1, 1)
+    assert Month.fromordinal(2) == Month(1, 2)
+    assert Month.fromordinal(11) == Month(1, 11)
+    assert Month.fromordinal(12) == Month(1, 12)
+    assert Month.fromordinal(13) == Month(2, 1)
+    assert Month.fromordinal(120) == Month(10, 12)
+    assert Month.fromordinal(1200) == Month(100, 12)
+    assert Month.fromordinal(12_000) == Month(1000, 12)
+    assert Month.fromordinal(24_000) == Month(2000, 12)
+    assert Month.fromordinal(24_261) == Month(2022, 9)
+
+    with pytest.raises(ValueError) as exc_info:
+        Month.fromordinal(0)
+    assert str(exc_info.value) == "ordinal must be >= 1"
 
 
 def test_start_end_date():
@@ -302,6 +323,9 @@ def test_add_monthdelta():
 
     assert MonthDelta(1) + Month(2001, 1) == Month(2001, 2)
     assert MonthDelta(-10) + Month(2001, 1) == Month(2000, 3)
+
+    # TODO: test overflow: Month(1, 1) - MonthDelta(1)
+    # TODO: overflow tests for other classes
 
 
 def test_add_others():

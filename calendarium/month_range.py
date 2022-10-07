@@ -25,7 +25,7 @@ class MonthRange:
     ):
         if months is not None:
             if duration is not None:
-                raise TypeError(f"{type(self).__name__} doesn't accept both duration and months")
+                raise ValueError(f"{type(self).__name__} doesn't accept both duration and months")
             duration = MonthDelta(months)
 
         if start_month is not None and end_month is not None:
@@ -47,6 +47,10 @@ class MonthRange:
 
         else:
             raise ValueError(f"too few arguments specified for {type(self).__name__}")
+
+    @property
+    def last_month(self) -> Month:
+        return self.end_month - MonthDelta(1)
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self.start_month!r}, {self.end_month!r})'
@@ -89,38 +93,44 @@ class MonthRange:
         return self.start_month == other.start_month and self.end_month == other.end_month
 
     def __hash__(self) -> int:
-        if self:
-            return hash((type(self).__name__, self.start_month.ord(), self.end_month.ord()))
-        else:
+        if not self:
             return hash((type(self).__name__, 0, 0))
+
+        return hash((type(self).__name__, self.start_month.toordinal(), self.end_month.toordinal()))
+
 
     def __len__(self) -> int:
         return self.duration.total_months()
 
     def __iter__(self) -> Iterator[Month]:
         return (
-            Month.from_ord(mo)
-            for mo in range(self.start_month.ord(), self.end_month.ord())
+            Month.fromordinal(mo)
+            for mo in range(self.start_month.toordinal(), self.end_month.toordinal())
         )
 
     def __contains__(self, item):
         if isinstance(item, datetime.date):
             return self.start_date <= item < self.end_date
 
-        return self.start_month <= Month(item) < self.end_month
+        try:
+            month = Month(item)
+        except (ValueError, TypeError):
+            return False
+
+        return self.start_month <= month < self.end_month
 
     def __add__(self, other) -> 'MonthRange':
-        if isinstance(other, MonthDelta):
-            return type(self)(self.start_month + other, self.end_month + other)
+        if not isinstance(other, MonthDelta):
+            return NotImplemented
 
-        return NotImplemented
+        return type(self)(self.start_month + other, self.end_month + other)
 
     __radd__ = __add__
 
     def __bool__(self) -> bool:
         return self.start_month < self.end_month
 
-    def days(self) -> Iterator[datetime.date]:
+    def dates(self) -> Iterator[datetime.date]:
         return (date for month in self for date in month)
 
     @property
@@ -142,25 +152,27 @@ class MonthRange:
         return self.timedelta().days
 
     @classmethod
-    def year(cls, year: int) -> 'MonthRange':
+    def for_year(cls, year: int) -> 'MonthRange':
         return cls((year, 1), (year + 1, 1))
 
     @classmethod
-    def quarter(cls, year: int, q: int) -> 'MonthRange':
-        try:
-            return cls(start_month=(year, q * 3 - 2), months=3)
-        except ValueError:
-            raise ValueError("quarter must be in 1..4")
-
-    @classmethod
-    def halfyear(cls, year: int, half: int) -> 'MonthRange':
+    def for_halfyear(cls, year: int, half: int) -> 'MonthRange':
         try:
             return cls(start_month=(year, half * 6 - 5), months=6)
         except ValueError:
             raise ValueError("half must be 1 or 2")
 
+    @classmethod
+    def for_quarter(cls, year: int, q: int) -> 'MonthRange':
+        try:
+            return cls(start_month=(year, q * 3 - 2), months=3)
+        except ValueError:
+            raise ValueError("quarter must be in 1..4")
+
     def following(self) -> 'MonthRange':
+        # doesn't use duration because of negative range corner cases
         return type(self)(self.end_month, self.end_month + (self.end_month - self.start_month))
 
     def preceding(self) -> 'MonthRange':
+        # doesn't use duration because of negative range corner cases
         return type(self)(self.start_month - (self.end_month - self.start_month), self.start_month)

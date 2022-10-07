@@ -5,6 +5,8 @@ from typing import Any
 from typing import Union
 
 from calendarium.date_range import DateRange
+from calendarium.utils import get_arg
+from calendarium.utils import validate_args
 
 # except for leap years
 DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -15,22 +17,21 @@ class Month(DateRange):
 
     __slots__ = ('year', 'month')
 
-    # TODO: use @singledisatchmethod?
-    def __init__(self, *args, year: int = None, month: int = None):
-        if year is not None and month is not None:
-            if args:
-                raise TypeError(
-                    f"{type(self).__name__} expects only args or only kwargs, but not both"
-                )
-            self.year, self.month = int(year), int(month)
-        elif year is not None or month is not None:
-            raise TypeError(f"{type(self).__name__} requires both year and month, not just one")
-        elif len(args) == 1:
-            self.year, self.month = Month._ym_tuple(args[0])
-        elif len(args) == 2:
-            self.year, self.month = int(args[0]), int(args[1])
+    def __init__(self, *args, **kwargs):
+
+        validate_args(2, ('year', 'month'), args, kwargs)
+
+        if len(args) == 1 and not kwargs:
+            single_arg = args[0]
+            if isinstance(single_arg, int):
+                # Month(2000) -> missing week arg -> will raise TypeError
+                get_arg(1, 'month', args, kwargs)
+
+            self.year, self.month = Month._ym_tuple(single_arg)
+
         else:
-            raise TypeError(f"{type(self).__name__} expected 1 or 2 arguments, got {len(args)}")
+            self.year = get_arg(0, 'year', args, kwargs)
+            self.month = get_arg(1, 'month', args, kwargs)
 
         start_date = datetime.date(self.year, self.month, 1)
 
@@ -87,7 +88,7 @@ class Month(DateRange):
         )
 
     def __hash__(self) -> int:
-        return hash((type(self).__name__, self.ord()))
+        return hash((type(self).__name__, self.toordinal()))
 
     def is_leap(self) -> bool:
         return self.month == 2 and calendar.isleap(self.year)
@@ -97,31 +98,31 @@ class Month(DateRange):
 
     def __lt__(self, other) -> bool:
         if isinstance(other, Month):
-            return self.ord() < other.ord()
+            return self.toordinal() < other.toordinal()
 
         return NotImplemented
 
     def __le__(self, other) -> bool:
         if isinstance(other, Month):
-            return self.ord() <= other.ord()
+            return self.toordinal() <= other.toordinal()
 
         return NotImplemented
 
-    EPOCH = (1970, 1)
-    EPOCH_Y, EPOCH_M = EPOCH
-
-    def ord(self) -> int:
-        return (self.year - self.EPOCH_Y) * 12 + (self.month - self.EPOCH_M)
+    def toordinal(self) -> int:
+        return (self.year - 1) * 12 + self.month
 
     @classmethod
-    def from_ord(cls, ord_: int) -> 'Month':
-        year, month = divmod(ord_, 12)
-        return cls(year + cls.EPOCH_Y, month + cls.EPOCH_M)
+    def fromordinal(cls, ordinal: int) -> 'Month':
+        if ordinal < 1:
+            raise ValueError("ordinal must be >= 1")
+
+        year, month = divmod(ordinal - 1, 12)
+        return cls(year + 1, month % 12 + 1)
 
     def __sub__(self, other) -> 'MonthDelta':
         # month - month
         if isinstance(other, Month):
-            return MonthDelta(self.ord() - other.ord())
+            return MonthDelta(self.toordinal() - other.toordinal())
 
         return NotImplemented
 
@@ -207,7 +208,7 @@ class MonthDelta:
     def __add__(self, other):
         # monthdelta + month
         if isinstance(other, Month):
-            return type(other).from_ord(other.ord() + self.total_months())
+            return type(other).fromordinal(other.toordinal() + self.total_months())
 
         # monthdelta + monthdelta
         if isinstance(other, MonthDelta):

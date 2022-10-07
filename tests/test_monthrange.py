@@ -11,16 +11,19 @@ def test_init():
     # start + end
     mr1 = MonthRange(Month(2010, 10), Month(2011, 2))
     assert mr1.start_month == Month(2010, 10)
+    assert mr1.last_month == Month(2011, 1)
     assert mr1.end_month == Month(2011, 2)
     assert mr1.duration == MonthDelta(4)
     # start + duration
     mr2 = MonthRange(start_month=Month(2014, 3), duration=MonthDelta(4))
     assert mr2.start_month == Month(2014, 3)
+    assert mr2.last_month == Month(2014, 6)
     assert mr2.end_month == Month(2014, 7)
     assert mr2.duration == MonthDelta(4)
     # end + duration
     mr3 = MonthRange(end_month=Month(2015, 8), duration=MonthDelta(6))
     assert mr3.start_month == Month(2015, 2)
+    assert mr3.last_month == Month(2015, 7)
     assert mr3.end_month == Month(2015, 8)
     assert mr3.duration == MonthDelta(6)
     # start + end + duration
@@ -32,6 +35,7 @@ def test_init():
     # start can be after end
     mr5 = MonthRange(Month(2010, 10), Month(2010, 9))
     assert mr5.start_month == Month(2010, 10)
+    assert mr5.last_month == Month(2010, 8)
     assert mr5.end_month == Month(2010, 9)
     assert mr5.duration == MonthDelta(0)
 
@@ -39,21 +43,25 @@ def test_init():
 def test_init_alt():
     mr1 = MonthRange("2022-01", "2022-04")
     assert mr1.start_month == Month(2022, 1)
+    assert mr1.last_month == Month(2022, 3)
     assert mr1.end_month == Month(2022, 4)
     assert mr1.duration == MonthDelta(3)
 
     mr2 = MonthRange((1998, 5), (2001, 4))
     assert mr2.start_month == Month(1998, 5)
+    assert mr2.last_month == Month(2001, 3)
     assert mr2.end_month == Month(2001, 4)
     assert mr2.duration == MonthDelta(years=2, months=11)
 
     mr3 = MonthRange("2001-11", months=4)
     assert mr3.start_month == Month(2001, 11)
+    assert mr3.last_month == Month(2002, 2)
     assert mr3.end_month == Month(2002, 3)
     assert mr3.duration == MonthDelta(4)
 
     mr4 = MonthRange(end_month=(1970, 1), months=12)
     assert mr4.start_month == Month(1969, 1)
+    assert mr4.last_month == Month(1969, 12)
     assert mr4.end_month == Month(1970, 1)
     assert mr4.duration == MonthDelta(12)
 
@@ -69,6 +77,8 @@ def test_init_invalid():
     # only duration
     with pytest.raises(ValueError):
         MonthRange(duration=MonthDelta(8))
+    with pytest.raises(ValueError):
+        MonthRange(months=4)
     # no args
     with pytest.raises(ValueError) as exc_info:
         MonthRange()
@@ -87,7 +97,7 @@ def test_repr():
 
 def test_str():
     assert str(MonthRange(Month(2000, 1), Month(2002, 10))) == "2000-01/2002-10"
-    assert str(MonthRange.year(1999)) == "1999-01/2000-01"
+    assert str(MonthRange.for_year(1999)) == "1999-01/2000-01"
     assert str(MonthRange((2013, 1), (2015, 12))) == "2013-01/2015-12"
     assert str(MonthRange((2020, 10), (2020, 6))) == "2020-10/2020-06"
 
@@ -179,9 +189,9 @@ def test_iter():
     assert list(MonthRange((1999, 10), (1999, 6))) == []
 
 
-def test_days():
+def test_dates():
     mr = MonthRange((2004, 12), (2005, 3))
-    g = mr.days()
+    g = mr.dates()
     assert next(g) == datetime.date(2004, 12, 1)
     assert next(g) == datetime.date(2004, 12, 2)
     assert next(g) == datetime.date(2004, 12, 3)
@@ -192,18 +202,18 @@ def test_days():
     with pytest.raises(StopIteration):
         next(g)
 
-    mr_2004 = MonthRange.year(2004)
-    dates_2004 = list(mr_2004.days())
+    mr_2004 = MonthRange.for_year(2004)
+    dates_2004 = list(mr_2004.dates())
     assert len(dates_2004) == 366
     assert dates_2004[0] == datetime.date(2004, 1, 1) == mr_2004.start_date
     assert dates_2004[-1] == datetime.date(2004, 12, 31) == mr_2004.last_date
 
-    assert list(MonthRange((2000, 1), (1999, 12)).days()) == []
+    assert list(MonthRange((2000, 1), (1999, 12)).dates()) == []
 
 
 def test_total_days():
-    assert MonthRange.year(2004).total_days() == 366
-    assert MonthRange.year(2005).total_days() == 365
+    assert MonthRange.for_year(2004).total_days() == 366
+    assert MonthRange.for_year(2005).total_days() == 365
     assert MonthRange((2001, 2), months=3).total_days() == 89  # 28 + 31 + 30
     assert MonthRange((2001, 6), months=3).total_days() == 92  # 30 + 31 + 31
     assert MonthRange((2005, 12), (2006, 2)).total_days() == 62  # 31 + 31
@@ -238,6 +248,10 @@ def test_contains():
     assert "2020-11" in mr
     assert "2021-02" in mr
     assert "2021-03" not in mr
+
+    assert "2020-W10" not in mr
+    assert "oranges" not in mr
+    assert 1337 not in mr
 
     assert datetime.date(2020, 10, 31) not in mr
     assert datetime.date(2020, 11, 1) in mr
@@ -279,30 +293,30 @@ def test_hash():
     }
 
 
-def test_year():
-    assert MonthRange.year(2000) == MonthRange((2000, 1), (2001, 1))
-    assert MonthRange.year(1776) == MonthRange((1776, 1), (1777, 1))
+def test_for_year():
+    assert MonthRange.for_year(2000) == MonthRange((2000, 1), (2001, 1))
+    assert MonthRange.for_year(1776) == MonthRange((1776, 1), (1777, 1))
 
 
-def test_halfyear():
-    assert MonthRange.halfyear(1999, 1) == MonthRange((1999, 1), (1999, 7))
-    assert MonthRange.halfyear(1999, 2) == MonthRange((1999, 7), (2000, 1))
+def test_for_halfyear():
+    assert MonthRange.for_halfyear(1999, 1) == MonthRange((1999, 1), (1999, 7))
+    assert MonthRange.for_halfyear(1999, 2) == MonthRange((1999, 7), (2000, 1))
 
     for half in [-1, 0, 3, 4]:
         with pytest.raises(ValueError) as exc_info:
-            MonthRange.halfyear(2020, half)
+            MonthRange.for_halfyear(2020, half)
         assert str(exc_info.value) == "half must be 1 or 2"
 
 
-def test_quarter():
-    assert MonthRange.quarter(2021, 1) == MonthRange((2021, 1), (2021, 4))
-    assert MonthRange.quarter(2021, 2) == MonthRange((2021, 4), (2021, 7))
-    assert MonthRange.quarter(2021, 3) == MonthRange((2021, 7), (2021, 10))
-    assert MonthRange.quarter(1888, 4) == MonthRange((1888, 10), (1889, 1))
+def test_for_quarter():
+    assert MonthRange.for_quarter(2021, 1) == MonthRange((2021, 1), (2021, 4))
+    assert MonthRange.for_quarter(2021, 2) == MonthRange((2021, 4), (2021, 7))
+    assert MonthRange.for_quarter(2021, 3) == MonthRange((2021, 7), (2021, 10))
+    assert MonthRange.for_quarter(1888, 4) == MonthRange((1888, 10), (1889, 1))
 
     for q in [-10, -1, 0, 5, 10]:
         with pytest.raises(ValueError) as exc_info:
-            MonthRange.quarter(1999, q)
+            MonthRange.for_quarter(1999, q)
         assert str(exc_info.value) == "quarter must be in 1..4"
 
 

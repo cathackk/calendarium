@@ -17,6 +17,10 @@ class DateRange:
     def last_date(self) -> datetime.date:
         return self.end_date - ONE_DAY
 
+    @property
+    def duration(self) -> datetime.timedelta:
+        return self.end_date - self.start_date
+
     def __iter__(self) -> Iterator[datetime.date]:
         date = self.start_date
         while date < self.end_date:
